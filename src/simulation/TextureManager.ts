@@ -12,6 +12,7 @@ interface TexturePair {
 
 export class TextureManager {
   private resolution: number;
+  // 纹理对
   private texturePairs: Map<string, TexturePair> = new Map();
   
   constructor(resolution: number) {
@@ -124,13 +125,20 @@ export class TextureManager {
     ];
     
     swapList.forEach((name) => {
-      const pair = this.texturePairs.get(name);
-      if (pair && pair.read !== pair.write) {
-        const temp = pair.read;
-        pair.read = pair.write;
-        pair.write = temp;
-      }
+      this.swapTexture(name);
     });
+  }
+  
+  /**
+   * 交换单个纹理对
+   */
+  public swapTexture(name: string): void {
+    const pair = this.texturePairs.get(name);
+    if (pair && pair.read !== pair.write) {
+      const temp = pair.read;
+      pair.read = pair.write;
+      pair.write = temp;
+    }
   }
   
   /**

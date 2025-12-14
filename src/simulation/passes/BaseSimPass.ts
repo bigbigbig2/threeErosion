@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import type { TextureManager } from '../TextureManager';
 
 export abstract class BaseSimPass {
-  protected material: THREE.ShaderMaterial;
+  protected material!: THREE.ShaderMaterial;
   protected textureManager: TextureManager;
   protected uniforms: { [key: string]: THREE.IUniform };
   protected name: string;

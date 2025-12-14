@@ -1,13 +1,13 @@
-/**
- * 主应用类
- * 负责整个应用的初始化、更新和渲染循环
- */
-
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { GUIManager } from '../ui/GUIManager';
-import { StatsMonitor } from '../ui/StatsMonitor';
 import { SimulationEngine } from '../simulation/SimulationEngine';
+import { TerrainMesh } from '../rendering/TerrainMesh';
+import { WaterMesh } from '../rendering/WaterMesh';
+import { SceneDepthPass } from '../rendering/postprocessing/SceneDepthPass';
+import { BrushController } from '../interaction/BrushController';
+import { DebugUI } from '../ui/DebugUI';
+import { HelpUI } from '../ui/HelpUI';
+import { FPSMonitor } from '../ui/FPSMonitor';
 
 export class App {
   private renderer!: THREE.WebGLRenderer;
@@ -18,16 +18,23 @@ export class App {
   // 模拟引擎
   private simulationEngine!: SimulationEngine;
   
-  // UI 和监控
-  private guiManager!: GUIManager;
-  private stats!: StatsMonitor;
+  // 地形渲染
+  private terrainMesh!: TerrainMesh;
   
-  // 调试
-  private debugPlaneMaterial: THREE.ShaderMaterial | null = null;
+  // 水体渲染
+  private waterMesh!: WaterMesh;
+  private sceneDepthPass!: SceneDepthPass;
+  
+  // 笔刷交互
+  private brushController!: BrushController;
+  
+  // UI 和监控
+  private helpUI: any;
+  private fpsMonitor!: FPSMonitor;
   
   // 状态管理
   private clock: THREE.Clock;
-  private isPaused: boolean = false;
+  private isPaused: boolean = true;  // 默认暂停，防止启动时淹没
   
   constructor(canvas: HTMLCanvasElement) {
     this.clock = new THREE.Clock();
@@ -37,16 +44,14 @@ export class App {
     this.initCamera();
     this.initLights();
     this.initSimulation();
-    this.addDebugPlane(); // 添加调试平面
+    this.addTerrainMesh(); // 添加地形网格
+    this.initWaterRendering(); // 初始化水体渲染
+    this.initBrushController(); // 初始化笔刷控制器
     this.initUI();
     this.setupEventListeners();
-    
-    console.log('✅ App 初始化完成');
   }
   
-  /**
-   * 初始化 WebGL 渲染器
-   */
+
   private initRenderer(canvas: HTMLCanvasElement): void {
     this.renderer = new THREE.WebGLRenderer({
       canvas,
@@ -76,20 +81,14 @@ export class App {
     console.log('✅ 渲染器初始化完成');
   }
   
-  /**
-   * 初始化场景
-   */
+
   private initScene(): void {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x87ceeb); // 天空蓝
-    this.scene.fog = new THREE.Fog(0x87ceeb, 50, 200);
-    
-    console.log('✅ 场景初始化完成');
+    this.scene.background = new THREE.Color(0x211d25);
+    this.scene.fog = new THREE.Fog(0x211d25, 50, 200);
   }
   
-  /**
-   * 初始化相机和控制器
-   */
+
   private initCamera(): void {
     this.camera = new THREE.PerspectiveCamera(
       45,
@@ -106,36 +105,56 @@ export class App {
     this.controls.minDistance = 5;
     this.controls.maxDistance = 100;
     this.controls.maxPolarAngle = Math.PI / 2 - 0.1;
-    
-    console.log('✅ 相机初始化完成');
   }
   
-  /**
-   * 初始化模拟引擎
-   */
+
   private initSimulation(): void {
     this.simulationEngine = new SimulationEngine(this.renderer, {
       resolution: 1024,
-      speed: 3
+      speed: 1  // 降低默认速度以提高性能
     });
-    
-    console.log('✅ 模拟引擎初始化完成');
   }
   
   /**
-   * 初始化光照
+   * 添加地形网格
    */
+  private addTerrainMesh(): void {
+    // 网格细分度 256，模拟分辨率 1024
+    this.terrainMesh = new TerrainMesh(256, 1024);
+    this.scene.add(this.terrainMesh.getMesh());
+  }
+  
+  /**
+   * 初始化水体渲染系统
+   */
+  private initWaterRendering(): void {
+    // 创建场景深度渲染通道
+    this.sceneDepthPass = new SceneDepthPass(
+      window.innerWidth,
+      window.innerHeight
+    );
+    
+    this.waterMesh = new WaterMesh(256, 1024);
+    this.scene.add(this.waterMesh.getMesh());
+  }
+  
+
+  private initBrushController(): void {
+    this.brushController = new BrushController(
+      this.camera,
+      this.terrainMesh.getMesh()
+    );
+  }
+  
+ 
   private initLights(): void {
-    // 环境光
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
     this.scene.add(ambientLight);
     
-    // 方向光（太阳光）
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(50, 100, 30);
     directionalLight.castShadow = true;
     
-    // 配置阴影
     directionalLight.shadow.mapSize.width = 2048;
     directionalLight.shadow.mapSize.height = 2048;
     directionalLight.shadow.camera.near = 0.5;
@@ -147,88 +166,23 @@ export class App {
     
     this.scene.add(directionalLight);
     
-    // 添加测试立方体
-    const geometry = new THREE.BoxGeometry(5, 5, 5);
-    const material = new THREE.MeshStandardMaterial({ color: 0x44aa88 });
-    const cube = new THREE.Mesh(geometry, material);
-    cube.position.y = 2.5;
-    cube.castShadow = true;
-    cube.receiveShadow = true;
-    this.scene.add(cube);
-    
-    // 添加地面
-    const groundGeometry = new THREE.PlaneGeometry(100, 100);
-    const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x999999 });
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    this.scene.add(ground);
-    
-    console.log('✅ 光照初始化完成');
   }
   
-  /**
-   * 添加调试平面（显示模拟纹理）
-   */
-  private addDebugPlane(): void {
-    const planeGeometry = new THREE.PlaneGeometry(20, 20);
-    
-    // 使用自定义着色器来可视化纹理
-    const planeMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        terrainTexture: { value: null } // 先设置为 null
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform sampler2D terrainTexture;
-        varying vec2 vUv;
-        
-        void main() {
-          vec4 terrain = texture2D(terrainTexture, vUv);
-          
-          // 显示所有通道用于调试
-          // R = 高度, G = 水深, B = 可视化高度
-          float height = terrain.b;
-          
-          // 如果高度为0，显示红色表示有问题
-          if(height < 0.001) {
-            gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
-          } else {
-            // 显示灰度高度图
-            gl_FragColor = vec4(height, height, height, 1.0);
-          }
-        }
-      `,
-      side: THREE.DoubleSide
-    });
-    
-    this.debugPlaneMaterial = planeMaterial;
-    
-    const debugPlane = new THREE.Mesh(planeGeometry, planeMaterial);
-    debugPlane.position.set(0, 10, 0);
-    debugPlane.rotation.x = -Math.PI / 2;
-    this.scene.add(debugPlane);
-    
-    console.log('✅ 调试平面已添加');
-  }
+
   
   /**
    * 初始化 UI
    */
   private initUI(): void {
-    // GUI 控制面板
-    this.guiManager = new GUIManager(this);
+    // 调试 GUI 面板（传递水体网格和笔刷控制器）
+    new DebugUI(this.simulationEngine, this.terrainMesh, this.waterMesh, this.brushController);
     
-    // 性能监控
-    this.stats = new StatsMonitor();
+    // 操作提示面板
+    this.helpUI = new HelpUI();
     
-    console.log('✅ UI 初始化完成');
+    // FPS 监控器
+    this.fpsMonitor = new FPSMonitor();
+    
   }
   
   /**
@@ -237,11 +191,42 @@ export class App {
   private setupEventListeners(): void {
     window.addEventListener('resize', this.onWindowResize.bind(this));
     
+    // 鼠标事件（笔刷）
+    window.addEventListener('mousemove', (e) => {
+      this.brushController.onMouseMove(e);
+    });
+    window.addEventListener('mousedown', (e) => {
+      this.brushController.onMouseDown(e);
+    });
+    window.addEventListener('mouseup', (e) => {
+      this.brushController.onMouseUp(e);
+    });
+    
     // 键盘事件
     window.addEventListener('keydown', (e) => {
-      if (e.key === ' ') {
+      // 空格键：暂停/继续
+      if (e.code === 'Space') {
+        e.preventDefault();
         this.togglePause();
       }
+      // R 键：重置地形（但不是笔刷的 R 键）
+      else if (e.code === 'KeyR' && !e.ctrlKey && !e.shiftKey) {
+        // 先传递给笔刷控制器
+        this.brushController.onKeyDown(e);
+      }
+      // H 键：显示/隐藏帮助面板
+      else if (e.code === 'KeyH') {
+        e.preventDefault();
+        this.helpUI.toggle();
+      }
+      // C, P 键：笔刷控制
+      else if (e.code === 'KeyC' || e.code === 'KeyP') {
+        this.brushController.onKeyDown(e);
+      }
+    });
+    
+    window.addEventListener('keyup', (e) => {
+      this.brushController.onKeyUp(e);
     });
   }
   
@@ -256,46 +241,76 @@ export class App {
     this.camera.updateProjectionMatrix();
     
     this.renderer.setSize(width, height);
+    
+    // 更新深度渲染通道尺寸
+    this.sceneDepthPass.setSize(width, height);
+    
+    // 更新水体材质的屏幕尺寸
+    this.waterMesh.setScreenDimensions(width, height);
   }
   
-  /**
-   * 启动应用
-   */
+ 
   public start(): void {
-    console.log('🚀 启动渲染循环...');
     this.animate();
   }
   
-  /**
-   * 主渲染循环
-   */
+ 
   private animate = (): void => {
     requestAnimationFrame(this.animate);
     
-    // 更新性能监控
-    this.stats.begin();
-    
-    // 更新控制器
+    // 更新 FPS 监控
+    this.fpsMonitor.update();
     this.controls.update();
     
-    // 执行物理模拟
+    // 执行物理模拟（即使暂停也要调用 update，因为它会处理初始化）
     const delta = this.clock.getDelta();
-    if (!this.isPaused) {
-      this.simulationEngine.update(delta);
+    this.simulationEngine.update(delta);
+    
+    // 应用笔刷编辑（即使暂停也可以编辑）
+    const brushParams = this.brushController.getBrushParams();
+    if (brushParams.active) {
+      this.simulationEngine.applyBrush(brushParams);
     }
     
-    // 更新调试平面的纹理引用
-    if (this.debugPlaneMaterial) {
-      const terrainTexture = this.simulationEngine.getTerrainTexture();
-      if (terrainTexture) {
-        this.debugPlaneMaterial.uniforms.terrainTexture.value = terrainTexture;
-      }
-    }
+    // 更新地形材质的笔刷参数（用于显示笔刷光标）
+    this.terrainMesh.setBrushParams(brushParams);
     
-    // 渲染场景
+    // 从 SimulationEngine 获取所有纹理
+    const textures = this.simulationEngine.getTextures();
+    
+    // 更新地形网格的所有纹理
+    this.terrainMesh.updateTextures({
+      heightMap: textures.terrain.read || undefined,
+      normalMap: textures.terrainNormal.read || undefined,
+      sedimentMap: textures.sediment.read || undefined,
+      velocityMap: textures.velocity.read || undefined,
+      fluxMap: textures.flux.read || undefined,
+      terrainFluxMap: textures.terrainFlux.read || undefined,
+      maxSlippageMap: textures.maxSlippage.read || undefined,
+      sedimentBlendMap: textures.sedimentBlend.read || undefined
+    });
+    
+    // === 水体渲染流程 ===
+    
+    // 1. 渲染地形深度
+    this.sceneDepthPass.execute(this.renderer, this.scene, this.camera, this.terrainMesh.getMesh());
+    
+    // 2. 更新水体纹理
+    this.waterMesh.updateTextures({
+      heightMap: textures.terrain.read || undefined,
+      sedimentMap: textures.sediment.read || undefined,
+      sceneDepth: this.sceneDepthPass.getDepthTexture()
+    });
+    
+    // 3. 更新水体相机参数
+    this.waterMesh.setCameraParams(
+      this.camera.position,
+      this.camera.near,
+      this.camera.far
+    );
+    
+    // 4. 渲染最终场景（地形 + 水体）
     this.renderer.render(this.scene, this.camera);
-    
-    this.stats.end();
   }
   
   /**
@@ -304,7 +319,6 @@ export class App {
   public togglePause(): void {
     this.isPaused = !this.isPaused;
     this.simulationEngine.togglePause();
-    console.log(this.isPaused ? '⏸️ 已暂停' : '▶️ 已恢复');
   }
   
   /**
@@ -333,9 +347,11 @@ export class App {
    */
   public dispose(): void {
     this.simulationEngine.dispose();
+    this.terrainMesh.dispose();
+    this.waterMesh.dispose();
+    this.sceneDepthPass.dispose();
+    this.brushController.dispose();
     this.renderer.dispose();
     this.controls.dispose();
-    
-    console.log('🧹 资源已清理');
   }
 }
