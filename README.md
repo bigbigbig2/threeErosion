@@ -1,12 +1,14 @@
 # Three.js Terrain Erosion Simulation
 
-基于 Three.js 和 WebGL2 的实时地形侵蚀模拟，从原版 WebGL 项目迁移重构而来。
+Real-time terrain erosion simulation built with Three.js and WebGL2, migrated and refactored from the original WebGL project.
 
-## 原版项目
+## Original Project
 
-本项目基于 [Webgl-Erosion](https://github.com/lanlou123/Webgl-Erosion) 迁移重构，使用 Three.js 替代原生 WebGL 实现，采用 TypeScript 重写，提升代码可维护性和开发体验。
+This project is migrated from [Webgl-Erosion](https://github.com/lanlou123/Webgl-Erosion), rewritten using Three.js instead of raw WebGL, with TypeScript for better maintainability and developer experience.
 
-## 演示截图
+Original Demo: [PLAY LIVE](https://lanlou123.github.io/Webgl-Erosion/)
+
+## Screenshots
 
 ![image-20251214144215971](README.assets/image-20251214144215971.png)
 
@@ -16,45 +18,45 @@
 
 ![image-20251214144346864](README.assets/image-20251214144346864.png)
 
-## 主要特性
+## Features
 
-- 基于管道模型的水力侵蚀模拟
-- 热力侵蚀（滑坡）模拟
-- 泥沙输运与沉积
-- MacCormack 平流方案
-- 实时笔刷编辑（地形/水体）
-- 多种地形生成模式（FBM、域扭曲、梯田、Voronoi）
-- 多种调试视图（泥沙、速度场、通量等）
+- Pipe-model based hydraulic erosion simulation
+- Thermal erosion (landslide) simulation
+- Sediment transport and deposition
+- MacCormack advection scheme
+- Real-time brush editing (terrain/water)
+- Multiple terrain generation modes (FBM, Domain Warping, Terrace, Voronoi)
+- Various debug views (sediment, velocity field, flux, etc.)
 
-## 技术栈
+## Tech Stack
 
 - Three.js + WebGL2
 - TypeScript
 - Vite
 - dat.GUI
 
-## 快速开始
+## Getting Started
 
 ```bash
-# 安装依赖
+# Install dependencies
 npm install
 
-# 启动开发服务器
+# Start development server
 npm run dev
 
-# 构建生产版本
+# Build for production
 npm run build
 ```
 
-## 操作说明
+## Controls
 
-- 鼠标左键拖拽：旋转视角
-- 鼠标右键拖拽：平移视角
-- 鼠标滚轮：缩放
-- 按住 Shift + 左键：笔刷绘制
-- GUI 面板：调整模拟参数
+- Left mouse drag: Rotate camera
+- Right mouse drag: Pan camera
+- Mouse wheel: Zoom
+- Shift + Left click: Brush painting
+- GUI panel: Adjust simulation parameters
 
-## 参考文献
+## References
 
 - [Fast Hydraulic Erosion Simulation and Visualization on GPU](http://www-ljk.imag.fr/Publications/Basilic/com.lmc.publi.PUBLI_Inproceedings@117681e94b6_fff75c/FastErosion_PG07.pdf)
 - [Interactive Terrain Modeling Using Hydraulic Erosion](https://cgg.mff.cuni.cz/~jaroslav/papers/2008-sca-erosim/2008-sca-erosiom-fin.pdf)
