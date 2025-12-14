@@ -6,7 +6,7 @@ Real-time terrain erosion simulation built with Three.js and WebGL2, migrated an
 
 This project is migrated from [Webgl-Erosion](https://github.com/lanlou123/Webgl-Erosion), rewritten using Three.js instead of raw WebGL, with TypeScript for better maintainability and developer experience.
 
-Original Demo: [PLAY LIVE](https://lanlou123.github.io/Webgl-Erosion/)
+
 
 ## Screenshots
 
